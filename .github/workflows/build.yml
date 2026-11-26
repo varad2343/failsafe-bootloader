@@ -1,0 +1,10 @@
+name: build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+      - run: python3 run_tests.py
+      - run: python3 build_target.py
