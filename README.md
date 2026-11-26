@@ -14,7 +14,7 @@ Firmware update logic in C for a Cortex-M0+ (STM32G0B1) that always leaves a boo
 - Updates are refused while the running image is unconfirmed, so the fallback is never erased
 
 ## Verification
-A flash model cuts power during every erase or program operation of a full update cycle (523 points), leaving the operation half done. After each cut the device must boot an intact image and accept another update. The model also rejects programming a location twice.
+A flash model cuts power during every erase or program operation of an update cycle and of the trial boots (539 points, including the trial boots), leaving the operation half done. After each cut the device must boot an intact image and accept another update. The model also rejects programming a location twice.
 
 ## Run
 ```bash

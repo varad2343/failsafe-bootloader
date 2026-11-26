@@ -128,6 +128,43 @@ static void rollback_test(void)
     CHECK(boot_select(&flash) == 0);
 }
 
+/* A confirmed image that later gets corrupted must not be started. */
+static void corruption_test(void)
+{
+    factory();
+    CHECK(boot_select(&flash) == 0);
+    CHECK(do_update(4000, 2) == BOOT_OK);
+    CHECK(boot_select(&flash) == 1 && boot_confirm(&flash) == BOOT_OK);
+    sim.mem[SLOT_OFFSET(1) + HEADER_SPACE + 100] ^= 1u;
+    CHECK(boot_select(&flash) == 0 && version_in(0) == 1);
+}
+
+/* Losing power while counting trial boots must never turn an untested image into a confirmed one. */
+static long trial_power_fail_sweep(void)
+{
+    long cases = 0;
+    for (long k = 1;; k++) {
+        factory();
+        CHECK(boot_select(&flash) == 0);
+        CHECK(do_update(4000, 2) == BOOT_OK);
+        sim.ops = 0;
+        sim.fail_at = k;
+        sim.seed = (unsigned)k;
+        for (unsigned i = 0; i <= MAX_TRIES && !sim.dead; i++) (void)boot_select(&flash);
+        int interrupted = sim.dead;
+        power_cycle();
+        int slot = -1;
+        for (unsigned i = 0; i < MAX_TRIES + 2u; i++) {
+            slot = boot_select(&flash);
+            CHECK(slot == 0 || slot == 1);
+        }
+        CHECK(slot == 0 && version_in(0) == 1);
+        if (!interrupted) break;
+        cases++;
+    }
+    return cases;
+}
+
 /* Cut power at every single flash operation of a whole update cycle. */
 static long power_fail_sweep(void)
 {
@@ -164,8 +201,12 @@ int main(void)
     basic_tests();
     argument_tests();
     rollback_test();
+    corruption_test();
     long cases = power_fail_sweep();
     CHECK(cases > 500);
+    long trial = trial_power_fail_sweep();
+    CHECK(trial >= 12);
+    cases += trial;
     printf("ALL TESTS PASSED (%ld power-failure points, %ld checks)\n", cases, checks);
     return 0;
 }
